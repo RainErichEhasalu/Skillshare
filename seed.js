@@ -8,6 +8,20 @@ const STUDENT_COUNT = 20000;
 const COURSE_COUNT = 5000;
 const ENROLLMENT_TARGET = 2000000;
 
+// Track used emails for uniqueness
+const usedEmails = new Set();
+
+function generateUniqueEmail(role) {
+  let email;
+  do {
+    email = role === 'teacher' 
+      ? faker.internet.email({ provider: 'skillshare.edu' })
+      : faker.internet.email();
+  } while (usedEmails.has(email));
+  usedEmails.add(email);
+  return email;
+}
+
 // Database connection
 const db = new Database('skillshare.db');
 
@@ -85,7 +99,7 @@ async function seedUsers() {
       .fill(0)
       .map(() => ({
         name: faker.person.fullName(),
-        email: faker.internet.email(),
+        email: generateUniqueEmail('teacher'),
         role: 'teacher',
         created_at: faker.date.past().toISOString()
       }));
@@ -110,7 +124,7 @@ async function seedUsers() {
       .fill(0)
       .map(() => ({
         name: faker.person.fullName(),
-        email: faker.internet.email(),
+        email: generateUniqueEmail('student'),
         role: 'student',
         created_at: faker.date.past().toISOString()
       }));
