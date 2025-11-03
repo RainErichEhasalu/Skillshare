@@ -12,19 +12,17 @@ const ENROLLMENT_TARGET = 2000000;
 const db = new Database('skillshare.db');
 
 async function disableIndexes() {
-  console.log('Disabling indexes...');
-  db.prepare('ALTER TABLE users DISABLE KEYS').run();
-  db.prepare('ALTER TABLE courses DISABLE KEYS').run();
-  db.prepare('ALTER TABLE reviews DISABLE KEYS').run();
-  db.prepare('ALTER TABLE user_courses DISABLE KEYS').run();
+  console.log('Optimizing for bulk insert...');
+  db.prepare('PRAGMA synchronous = OFF').run();
+  db.prepare('PRAGMA journal_mode = MEMORY').run();
+  db.prepare('BEGIN TRANSACTION').run();
 }
 
 async function enableIndexes() {
-  console.log('Rebuilding indexes...');
-  db.prepare('ALTER TABLE users ENABLE KEYS').run();
-  db.prepare('ALTER TABLE courses ENABLE KEYS').run();
-  db.prepare('ALTER TABLE reviews ENABLE KEYS').run();
-  db.prepare('ALTER TABLE user_courses ENABLE KEYS').run();
+  console.log('Restoring normal operation mode...');
+  db.prepare('COMMIT').run();
+  db.prepare('PRAGMA synchronous = NORMAL').run();
+  db.prepare('PRAGMA journal_mode = DELETE').run();
 }
 
 async function seedUsers() {
@@ -42,14 +40,17 @@ async function seedUsers() {
         created_at: faker.date.past().toISOString()
       }));
       
+    const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
+    const params = values.flatMap(v => [v.name, v.email, v.role, v.created_at]);
+    
     db.prepare(`
       INSERT INTO users (name, email, role, created_at)
-      VALUES ${values.map(() => '(?, ?, ?, ?)').join(',')}
-    `).run(values.flatMap(v => [v.name, v.email, v.role, v.created_at]));
+      VALUES ${placeholders}
+    `).run(params);
 
     progress += values.length;
-    if (progress % 10000 === 0) {
-      console.log(`Progress: ${progress} users`);
+    if (progress % 200 === 0) {
+      console.log(`Progress: ${progress}/${TEACHER_COUNT} teachers`);
     }
   }
 
@@ -64,14 +65,17 @@ async function seedUsers() {
         created_at: faker.date.past().toISOString()
       }));
 
+    const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
+    const params = values.flatMap(v => [v.name, v.email, v.role, v.created_at]);
+
     db.prepare(`
       INSERT INTO users (name, email, role, created_at) 
-      VALUES ${values.map(() => '(?, ?, ?, ?)').join(',')}
-    `).run(values.flatMap(v => [v.name, v.email, v.role, v.created_at]));
+      VALUES ${placeholders}
+    `).run(params);
 
     progress += values.length;
-    if (progress % 10000 === 0) {
-      console.log(`Progress: ${progress} users`);
+    if (progress % 1000 === 0) {
+      console.log(`Progress: ${progress}/${STUDENT_COUNT} students`);
     }
   }
 }
@@ -92,14 +96,17 @@ async function seedCourses() {
         created_at: faker.date.past().toISOString()
       }));
 
+    const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
+    const params = values.flatMap(v => [v.title, v.description, v.teacher_id, v.created_at]);
+
     db.prepare(`
       INSERT INTO courses (title, description, teacher_id, created_at)
-      VALUES ${values.map(() => '(?, ?, ?, ?)').join(',')}
-    `).run(values.flatMap(v => [v.title, v.description, v.teacher_id, v.created_at]));
+      VALUES ${placeholders}
+    `).run(params);
 
     progress += values.length;
-    if (progress % 1000 === 0) {
-      console.log(`Progress: ${progress} courses`);
+    if (progress % 500 === 0) {
+      console.log(`Progress: ${progress}/${COURSE_COUNT} courses`);
     }
   }
 }
@@ -121,14 +128,17 @@ async function seedEnrollments() {
         progress: faker.number.float({ min: 0, max: 100, precision: 2 })
       }));
 
+    const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
+    const params = values.flatMap(v => [v.user_id, v.course_id, v.enrolled_at, v.progress]);
+
     db.prepare(`
       INSERT INTO user_courses (user_id, course_id, enrolled_at, progress)
-      VALUES ${values.map(() => '(?, ?, ?, ?)').join(',')}
-    `).run(values.flatMap(v => [v.user_id, v.course_id, v.enrolled_at, v.progress]));
+      VALUES ${placeholders}
+    `).run(params);
 
     progress += values.length;
-    if (progress % 100000 === 0) {
-      console.log(`Progress: ${progress} enrollments`);
+    if (progress % 50000 === 0) {
+      console.log(`Progress: ${progress}/${ENROLLMENT_TARGET} enrollments`);
     }
   }
 }
@@ -149,14 +159,17 @@ async function seedReviews() {
       created_at: faker.date.past().toISOString()
     }));
 
+    const placeholders = values.map(() => '(?, ?, ?, ?, ?)').join(',');
+    const params = values.flatMap(v => [v.user_id, v.course_id, v.rating, v.comment, v.created_at]);
+
     db.prepare(`
       INSERT INTO reviews (user_id, course_id, rating, comment, created_at)
-      VALUES ${values.map(() => '(?, ?, ?, ?, ?)').join(',')}
-    `).run(values.flatMap(v => [v.user_id, v.course_id, v.rating, v.comment, v.created_at]));
+      VALUES ${placeholders}
+    `).run(params);
 
     progress += values.length;
-    if (progress % 50000 === 0) {
-      console.log(`Progress: ${progress} reviews`);
+    if (progress % 10000 === 0) {
+      console.log(`Progress: ${progress}/${enrollments.length} reviews`);
     }
   }
 }
@@ -174,6 +187,8 @@ async function main() {
   await enableIndexes();
   
   console.timeEnd('Seeding duration');
+  
+  console.log('Database seeding completed successfully!');
 }
 
 main().catch(console.error);
