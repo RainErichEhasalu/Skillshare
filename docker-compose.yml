@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: skillshare_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-mydatabase}
+      MYSQL_USER: ${DB_USER:-myuser}
+      MYSQL_PASSWORD: ${DB_PASS:-mypassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: always
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: ${DB_ROOT_PASS:-rootpassword}
+      UPLOAD_LIMIT: 100M
+    ports:
+      - "8080:80"
+
+volumes:
+  db_data:

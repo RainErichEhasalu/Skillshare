@@ -1,65 +1,71 @@
 # Skillshare andmebaasi täitmine
 
-Skript genereerib Skillshare-laadse õppeplatvormi andmebaasi jaoks realistlikud testandmed. Peamine eesmärk on luua vähemalt 2 miljonit rida kasutajate kursustesse registreerimise (`user_courses`) tabelisse.
+Skript genereerib Skillshare-laadse õppeplatvormi andmebaasi jaoks realistlikud testandmed. Peamine eesmärk on luua vähemalt 2 000 000 rida tabelisse `user_courses`.
 
 ## Eeldused
+- Docker & docker-compose (soovitatav)
+- MySQL 8.0 või uuem (konteineris või hostis)
+- Bun või Node.js
+- Sõltuvused: mysql2, @faker-js/faker
 
-- MySQL 8.0 või uuem
-- Bun 1.0 või uuem 
-- Node.js 18 või uuem
-
-## Paigaldamine
-
-1. Klooni repo
-2. Lisa vajalikud sõltuvused:
+## Paigaldamine ja käivitamine (lühike)
+1. Kopeeri näidis .env:
 ```bash
-bun install @faker-js/faker
+cp .env.example .env
+# redigeeri .env vastavalt oma keskkonnale (DB_USER, DB_PASS, DB_NAME, DB_ROOT_PASS)
 ```
 
-## Andmebaasi ettevalmistamine
-
-1. Loo andmebaas:
-```sql
-CREATE DATABASE Skillshare;
-USE Skillshare;
-```
-
-2. Impordi skeem:
+2. Kui kasutad Dockerit, käivita MySQL + phpMyAdmin:
 ```bash
-mysql -u root -p Skillshare < dump.sql
+docker compose up -d
 ```
+- phpMyAdmin on tavaliselt http://localhost:8080 (kasuta .env`is määratud root parooli).
 
-## Andmete genereerimine
-
-Käivita seemneskript:
+3. Paigalda sõltuvused:
 ```bash
-bun run seed.js
+# Bun
+bun add mysql2 @faker-js/faker
+# või npm
+npm install mysql2 @faker-js/faker
 ```
+
+4. Käivita seemneskript:
+```bash
+bun run seed
+# või
+node seed.js
+```
+
+## .env põhilised väljad (näide .env.example)
+- DB_HOST (nt 127.0.0.1)
+- DB_PORT (3306)
+- DB_USER (kokku sobiv kasutaja; Docker compose näidis: myuser)
+- DB_PASS (myuser parool)
+- DB_ROOT_PASS (root parool, kasutatav DB loomisel)
+- DB_NAME (nt mydatabase)
+- BATCH_SIZE, TEACHER_COUNT, STUDENT_COUNT, COURSE_COUNT, ENROLLMENT_TARGET
+
+## Kuidas docker-compose .env väärtustega sobitub
+Sinu docker-compose määrab:
+- MYSQL_DATABASE -> DB_NAME
+- MYSQL_USER -> DB_USER
+- MYSQL_PASSWORD -> DB_PASS
+- MYSQL_ROOT_PASSWORD -> DB_ROOT_PASS
+
+Veendu, et `.env` väärtused ja docker-compose keskkonnamuutujad vastavad üksteisele.
+
+## Kontroll phpMyAdminis
+- Ava http://localhost:8080
+- Logi sisse root / DB_ROOT_PASS (või muu kasutaja)
+- Vali andmebaas (DB_NAME) ja kontrolli tabelite row count (Browse või SQL)
 
 ## Oodatavad mahud
+- `user_courses`: ~2 000 000 rida
+- `users`: ~21 000 rida
+- `courses`: ~5 000 rida
+- `reviews`: kuni 500 000 rida
 
-- `user_courses`: ~2 000 000 rida (kursustesse registreerimised)
-- `users`: ~21 000 rida (1000 õpetajat + 20000 õpilast)
-- `courses`: ~5000 rida (keskmiselt 5 kursust õpetaja kohta)
-- `reviews`: ~500 000 rida (ligikaudu 25% registreerumistest jätavad tagasiside)
-
-## Andmete kvaliteet
-
-- Kasutajatel on realistlikud nimed ja meiliaadressid
-- Kursustel on mõistlikud pealkirjad ja kirjeldused
-- Kuupäevad on loogilises järjekorras (kursus ei saa alata enne õpetaja liitumist)
-- Hinnangud on 1-5 skaalal, kommentaarid on sisukad
-- Kõik võõrvõtmed on korrektsed (orvukirjeid ei esine)
-
-## Jõudlus
-
-- Andmed sisestatakse 1000-kaupa partiidena
-- Sisestamise ajaks on indeksid minimeeritud
-- Kogu protsess võtab aega ~10-15 minutit
-
-## Veaotsing
-
-Kui tekib viga "Too many connections", siis suurenda MySQL max_connections väärtust:
-```sql
-SET GLOBAL max_connections = 1000;
-```
+## Veaotsing (kõige levinumad)
+- phpMyAdmin näitab 0 rida → veendu, et seed.js kasutab sama DB_HOST/DB_PORT/DB_NAME kui phpMyAdmin.
+- Permission errors → kontrolli DB_USER/DB_PASS/DB_ROOT_PASS ja et DB on loodud.
+- Kui seed käib konteineris, kasuta `.env` seadistust konteineri keskkonnas või käivita seed skript hostist (DB_HOST=127.0.0.1, port 3306).

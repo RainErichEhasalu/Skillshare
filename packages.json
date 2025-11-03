@@ -1,0 +1,12 @@
+{
+  "name": "skillshare-seed",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "seed": "bun run seed.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.3.0",
+    "@faker-js/faker": "^8.0.2"
+  }
+}
