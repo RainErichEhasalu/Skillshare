@@ -8,8 +8,9 @@ const STUDENT_COUNT = 20000;
 const COURSE_COUNT = 5000;
 const ENROLLMENT_TARGET = 2000000;
 
-// Track used emails for uniqueness
+// Track used data for uniqueness
 const usedEmails = new Set();
+const usedEnrollments = new Set();
 
 function generateUniqueEmail(role) {
   let email;
@@ -183,14 +184,24 @@ async function seedEnrollments() {
   const courseIds = db.prepare('SELECT id FROM courses').all().map(c => c.id);
 
   for (let i = 0; i < ENROLLMENT_TARGET; i += BATCH_SIZE) {
-    const values = Array(Math.min(BATCH_SIZE, ENROLLMENT_TARGET - i))
-      .fill(0)
-      .map(() => ({
-        user_id: faker.helpers.arrayElement(studentIds),
-        course_id: faker.helpers.arrayElement(courseIds),
-        enrolled_at: faker.date.past().toISOString(),
-        progress: faker.number.float({ min: 0, max: 100, precision: 2 })
-      }));
+    const values = [];
+    const batchSize = Math.min(BATCH_SIZE, ENROLLMENT_TARGET - i);
+    
+    while (values.length < batchSize) {
+      const user_id = faker.helpers.arrayElement(studentIds);
+      const course_id = faker.helpers.arrayElement(courseIds);
+      const enrollmentKey = `${user_id}-${course_id}`;
+      
+      if (!usedEnrollments.has(enrollmentKey)) {
+        values.push({
+          user_id,
+          course_id,
+          enrolled_at: faker.date.past().toISOString(),
+          progress: faker.number.float({ min: 0, max: 100, precision: 2 })
+        });
+        usedEnrollments.add(enrollmentKey);
+      }
+    }
 
     const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
     const params = values.flatMap(v => [v.user_id, v.course_id, v.enrolled_at, v.progress]);
