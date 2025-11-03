@@ -8,19 +8,12 @@ const STUDENT_COUNT = 20000;
 const COURSE_COUNT = 5000;
 const ENROLLMENT_TARGET = 2000000;
 
-// Track used data for uniqueness
-const usedEmails = new Set();
+// Track used enrollments for uniqueness
 const usedEnrollments = new Set();
 
-function generateUniqueEmail(role) {
-  let email;
-  do {
-    email = role === 'teacher' 
-      ? faker.internet.email({ provider: 'skillshare.edu' })
-      : faker.internet.email();
-  } while (usedEmails.has(email));
-  usedEmails.add(email);
-  return email;
+function generateUniqueEmail(role, index) {
+  const domain = role === 'teacher' ? 'skillshare.edu' : 'student.com';
+  return `${role}${index}@${domain}`;
 }
 
 // Database connection
@@ -98,9 +91,9 @@ async function seedUsers() {
   for (let i = 0; i < TEACHER_COUNT; i += BATCH_SIZE) {
     const values = Array(Math.min(BATCH_SIZE, TEACHER_COUNT - i))
       .fill(0)
-      .map(() => ({
+      .map((_, idx) => ({
         name: faker.person.fullName(),
-        email: generateUniqueEmail('teacher'),
+        email: generateUniqueEmail('teacher', i + idx + 1),
         role: 'teacher',
         created_at: faker.date.past().toISOString()
       }));
@@ -123,9 +116,9 @@ async function seedUsers() {
   for (let i = 0; i < STUDENT_COUNT; i += BATCH_SIZE) {
     const values = Array(Math.min(BATCH_SIZE, STUDENT_COUNT - i))
       .fill(0)
-      .map(() => ({
+      .map((_, idx) => ({
         name: faker.person.fullName(),
-        email: generateUniqueEmail('student'),
+        email: generateUniqueEmail('student', i + idx + 1),
         role: 'student',
         created_at: faker.date.past().toISOString()
       }));
@@ -203,17 +196,19 @@ async function seedEnrollments() {
       }
     }
 
-    const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
-    const params = values.flatMap(v => [v.user_id, v.course_id, v.enrolled_at, v.progress]);
+    if (values.length > 0) {
+      const placeholders = values.map(() => '(?, ?, ?, ?)').join(',');
+      const params = values.flatMap(v => [v.user_id, v.course_id, v.enrolled_at, v.progress]);
 
-    db.prepare(`
-      INSERT INTO user_courses (user_id, course_id, enrolled_at, progress)
-      VALUES ${placeholders}
-    `).run(params);
+      db.prepare(`
+        INSERT INTO user_courses (user_id, course_id, enrolled_at, progress)
+        VALUES ${placeholders}
+      `).run(params);
 
-    progress += values.length;
-    if (progress % 50000 === 0) {
-      console.log(`Progress: ${progress}/${ENROLLMENT_TARGET} enrollments`);
+      progress += values.length;
+      if (progress % 50000 === 0) {
+        console.log(`Progress: ${progress}/${ENROLLMENT_TARGET} enrollments`);
+      }
     }
   }
 }
